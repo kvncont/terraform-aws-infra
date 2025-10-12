@@ -17,9 +17,8 @@ Este workflow automatiza el despliegue de la infraestructura Lambda para el ento
 
 ### Jobs
 
-1. **servicenow-change-create**: Crea un Change Request en ServiceNow
-2. **terraform-plan**: Ejecuta Terraform plan y valida el código
-3. **terraform-apply**: Aplica los cambios (solo en push a main, requiere aprobación del environment)
+1. **terraform-plan**: Ejecuta Terraform plan, valida el código, y gestiona el change request de ServiceNow
+2. **terraform-apply**: Aplica los cambios (solo en push a main, requiere aprobación del environment)
 
 ### Secrets Requeridos
 
@@ -28,10 +27,10 @@ Configura los siguientes secrets en GitHub:
 #### AWS Credentials
 - `AWS_ROLE_TO_ASSUME`: ARN del rol de AWS para asumir (usando OIDC)
 
-#### ServiceNow
+#### ServiceNow DevOps
 - `SN_INSTANCE_URL`: URL de tu instancia de ServiceNow (ej: https://dev12345.service-now.com)
-- `SN_USERNAME`: Usuario de ServiceNow con permisos para crear change requests
-- `SN_PASSWORD`: Contraseña del usuario de ServiceNow
+- `SN_DEVOPS_TOKEN`: Token de integración de ServiceNow DevOps
+- `SN_TOOL_ID`: ID de la herramienta de orquestación registrada en ServiceNow
 - `SN_ASSIGNMENT_GROUP`: Grupo de asignación para los change requests
 
 ### Environment
@@ -60,17 +59,16 @@ Para usar AWS credentials con OIDC, configura un Identity Provider en AWS:
 ### Flujo de Trabajo
 
 #### Para Pull Requests:
-1. Se crea un Change Request en ServiceNow
+1. Se crea/actualiza un Change Request en ServiceNow mediante la integración DevOps
 2. Se ejecuta Terraform plan
 3. Los resultados se comentan en el PR
-4. Se actualiza el Change Request con los resultados
 
 #### Para Push a Main:
-1. Se crea un Change Request en ServiceNow
-2. Se ejecuta Terraform plan
-3. **Requiere aprobación manual del environment `dev`**
+1. Se ejecuta Terraform plan con integración de Change Request
+2. **Requiere aprobación manual del environment `dev`**
+3. Se crea/actualiza el Change Request en ServiceNow para Apply
 4. Se ejecuta Terraform apply
-5. Se actualiza y cierra el Change Request basado en el resultado
+5. ServiceNow actualiza el estado del Change basado en el resultado
 
 ### Personalización
 

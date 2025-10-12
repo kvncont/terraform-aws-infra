@@ -26,38 +26,32 @@ env:
   TF_VAR_FILE: 'env/dev/dev.tfvars'
 
 jobs:
-  servicenow-change-create:
-    name: Create ServiceNow Change Request
-    runs-on: ubuntu-latest
-    outputs:
-      change-request-number: ${{ steps.create.outputs.change-request-number }}
-    steps:
-      - name: ServiceNow Change - Create
-        id: create
-        uses: ServiceNow/servicenow-change-velocity-action@v1
-        with:
-          action: 'create'
-          instance-url: ${{ secrets.SN_INSTANCE_URL }}
-          username: ${{ secrets.SN_USERNAME }}
-          password: ${{ secrets.SN_PASSWORD }}
-          change-request-type: 'standard'
-          assignment-group: ${{ secrets.SN_ASSIGNMENT_GROUP }}
-          short-description: 'Deploy Lambda Infrastructure - Dev Environment'
-          description: 'Automated deployment of Lambda infrastructure to development environment via GitHub Actions'
-          category: 'Infrastructure'
-          priority: '3'
-          risk: 'low'
-          impact: 'low'
-
   terraform-plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
-    needs: servicenow-change-create
     outputs:
       plan-exitcode: ${{ steps.plan.outputs.exitcode }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: ServiceNow DevOps Change Automation
+        uses: ServiceNow/servicenow-devops-change@v4.0.0
+        with:
+          instance-url: ${{ secrets.SN_INSTANCE_URL }}
+          devops-integration-token: ${{ secrets.SN_DEVOPS_TOKEN }}
+          tool-id: ${{ secrets.SN_TOOL_ID }}
+          context-github: ${{ toJSON(github) }}
+          job-name: 'Terraform Plan'
+          change-request: '{
+            "short_description": "Deploy Lambda Infrastructure - Dev Environment",
+            "description": "Automated deployment of Lambda infrastructure to development environment via GitHub Actions",
+            "assignment_group": "${{ secrets.SN_ASSIGNMENT_GROUP }}",
+            "category": "Infrastructure",
+            "priority": "3"
+          }'
+          interval: '30'
+          timeout: '3600'
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -105,8 +99,6 @@ jobs:
             const fs = require('fs');
             const output = `#### Terraform Plan 📝
 
-            **Change Request**: ${{ needs.servicenow-change-create.outputs.change-request-number }}
-
             <details><summary>Show Plan</summary>
 
             \`\`\`
@@ -124,20 +116,10 @@ jobs:
               body: output
             });
 
-      - name: ServiceNow Change - Update with Plan Results
-        uses: ServiceNow/servicenow-change-velocity-action@v1
-        with:
-          action: 'update'
-          instance-url: ${{ secrets.SN_INSTANCE_URL }}
-          username: ${{ secrets.SN_USERNAME }}
-          password: ${{ secrets.SN_PASSWORD }}
-          change-request-number: ${{ needs.servicenow-change-create.outputs.change-request-number }}
-          work-notes: 'Terraform plan completed. Exit code: ${{ steps.plan.outputs.exitcode }}'
-
   terraform-apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
-    needs: [servicenow-change-create, terraform-plan]
+    needs: terraform-plan
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
       name: dev
@@ -145,6 +127,24 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: ServiceNow DevOps Change Automation
+        uses: ServiceNow/servicenow-devops-change@v4.0.0
+        with:
+          instance-url: ${{ secrets.SN_INSTANCE_URL }}
+          devops-integration-token: ${{ secrets.SN_DEVOPS_TOKEN }}
+          tool-id: ${{ secrets.SN_TOOL_ID }}
+          context-github: ${{ toJSON(github) }}
+          job-name: 'Terraform Apply'
+          change-request: '{
+            "short_description": "Deploy Lambda Infrastructure - Dev Environment",
+            "description": "Automated deployment of Lambda infrastructure to development environment via GitHub Actions",
+            "assignment_group": "${{ secrets.SN_ASSIGNMENT_GROUP }}",
+            "category": "Infrastructure",
+            "priority": "3"
+          }'
+          interval: '30'
+          timeout: '3600'
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -172,41 +172,3 @@ jobs:
         id: apply
         working-directory: ${{ env.WORKING_DIR }}
         run: terraform apply -auto-approve tfplan
-
-      - name: ServiceNow Change - Update with Apply Success
-        if: success()
-        uses: ServiceNow/servicenow-change-velocity-action@v1
-        with:
-          action: 'update'
-          instance-url: ${{ secrets.SN_INSTANCE_URL }}
-          username: ${{ secrets.SN_USERNAME }}
-          password: ${{ secrets.SN_PASSWORD }}
-          change-request-number: ${{ needs.servicenow-change-create.outputs.change-request-number }}
-          state: 'implement'
-          work-notes: 'Terraform apply completed successfully. Lambda infrastructure deployed to dev environment.'
-
-      - name: ServiceNow Change - Close
-        if: success()
-        uses: ServiceNow/servicenow-change-velocity-action@v1
-        with:
-          action: 'update'
-          instance-url: ${{ secrets.SN_INSTANCE_URL }}
-          username: ${{ secrets.SN_USERNAME }}
-          password: ${{ secrets.SN_PASSWORD }}
-          change-request-number: ${{ needs.servicenow-change-create.outputs.change-request-number }}
-          state: 'review'
-          close-code: 'successful'
-          close-notes: 'Deployment completed successfully via GitHub Actions'
-
-      - name: ServiceNow Change - Update on Failure
-        if: failure()
-        uses: ServiceNow/servicenow-change-velocity-action@v1
-        with:
-          action: 'update'
-          instance-url: ${{ secrets.SN_INSTANCE_URL }}
-          username: ${{ secrets.SN_USERNAME }}
-          password: ${{ secrets.SN_PASSWORD }}
-          change-request-number: ${{ needs.servicenow-change-create.outputs.change-request-number }}
-          state: 'canceled'
-          close-code: 'unsuccessful'
-          close-notes: 'Deployment failed. Check GitHub Actions logs for details.'

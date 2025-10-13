@@ -14,7 +14,7 @@ lambda_memory_size   = 128
 lambda_description   = "Lambda function for development environment"
 
 # Directorio del código fuente (usa el valor por defecto de variables.tf)
-lambda_zip_file   = "lambda_function_dev.zip"
+lambda_zip_file = "lambda_function_dev.zip"
 
 # Rol de ejecución (opcional, se generará automáticamente si está vacío)
 lambda_execution_role_name = ""

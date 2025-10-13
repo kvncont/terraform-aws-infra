@@ -106,7 +106,8 @@ jobs:
             });
 
       - name: ServiceNow DevOps Change Automation
-        uses: ServiceNow/servicenow-devops-change@v4.0.0
+        uses: ServiceNow/servicenow-devops-change@v6.1.0
+        id: create
         with:
           devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
           instance-url: ${{ secrets.SN_INSTANCE_URL }}
@@ -115,14 +116,23 @@ jobs:
           job-name: 'Terraform Plan'
           change-request: |
             {
-              "short_description": "Deploy Lambda Infrastructure - Dev Environment",
-              "description": "Automated deployment of Lambda infrastructure to development environment via GitHub Actions",
-              "assignment_group": "${{ secrets.SN_ASSIGNMENT_GROUP }}",
-              "category": "Infrastructure",
-              "priority": "3"
+              "setCloseCode": true,
+              "autoCloseChange": true,
+              "attributes": {
+                "chg_model": {"name": "DevOps"},
+                "short_description": "Automated Software Deployment",
+                "description": "Automated Software Deployment.",
+                "implementation_plan": "Software update is tested and results can be found in Test Summaries Tab; When the change is approved the implementation happens automated by the CICD pipeline within the change planned start and end time window.",
+                "backout_plan": "When software fails in production, the previous software release will be re-deployed.",
+                "test_plan": "Testing if the software was successfully deployed"
+              }
             }
-          interval: '30'
-          timeout: '3600'
+          interval: '60'
+          timeout: '180'
+          changeCreationTimeOut: '180'
+          abortOnChangeCreationFailure: true
+          abortOnChangeStepTimeout: false
+          deployment-gate: '{"environment":"production","jobName":"Terraform Apply"}'
 
   terraform-apply:
     name: Terraform Apply
@@ -164,7 +174,7 @@ jobs:
         run: terraform apply -auto-approve tfplan
 
       - name: Cancel Change Request
-        uses: ServiceNow/servicenow-devops-update-change@v3.1.0
+        uses: ServiceNow/servicenow-devops-update-change@v5.1.0
         if: cancelled()
         with:
           devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}

@@ -1,6 +1,7 @@
 name: Lambdas Dev
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -46,6 +47,8 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: GitHubActions-Terraform-Plan
@@ -132,24 +135,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      # - name: ServiceNow DevOps Change Automation
-      #   uses: ServiceNow/servicenow-devops-change@v4.0.0
-      #   with:
-      #     instance-url: ${{ secrets.SN_INSTANCE_URL }}
-      #     devops-integration-token: ${{ secrets.SN_DEVOPS_TOKEN }}
-      #     tool-id: ${{ secrets.SN_TOOL_ID }}
-      #     context-github: ${{ toJSON(github) }}
-      #     job-name: 'Terraform Apply'
-      #     change-request: '{
-      #       "short_description": "Deploy Lambda Infrastructure - Dev Environment",
-      #       "description": "Automated deployment of Lambda infrastructure to development environment via GitHub Actions",
-      #       "assignment_group": "${{ secrets.SN_ASSIGNMENT_GROUP }}",
-      #       "category": "Infrastructure",
-      #       "priority": "3"
-      #     }'
-      #     interval: '30'
-      #     timeout: '3600'
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3

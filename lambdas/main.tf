@@ -1,8 +1,8 @@
 # Configuración local
 locals {
-  lambda_zip_path = "${path.module}/${var.lambda_zip_file}"
+  lambda_zip_path    = "${path.module}/${var.lambda_zip_file}"
   lambda_source_path = "${path.module}/${var.lambda_source_dir}"
-  role_name = var.lambda_execution_role_name != "" ? var.lambda_execution_role_name : "${var.lambda_function_name}-execution-role"
+  role_name          = var.lambda_execution_role_name != "" ? var.lambda_execution_role_name : "${var.lambda_function_name}-execution-role"
 }
 
 # Crear el archivo ZIP con el código de la Lambda

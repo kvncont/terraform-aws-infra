@@ -202,11 +202,10 @@ jobs:
     needs:
       - terraform-plan
       - terraform-apply
-    if: needs.terraform-apply.outcomes == 'cancelled'
+    if: cancelled()
     steps:
       - name: Cancel Change Request
         uses: ServiceNow/servicenow-devops-update-change@v5.1.0
-        if: cancelled()
         with:
           devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
           instance-url: ${{ secrets.SN_INSTANCE_URL }}

@@ -196,14 +196,6 @@ jobs:
       #   working-directory: ${{ env.WORKING_DIR }}
       #   run: terraform apply -auto-approve tfplan
 
-  cancel-change-request:
-    name: Cancel Change Request
-    runs-on: ubuntu-latest
-    needs:
-      - terraform-plan
-      - terraform-apply
-    if: cancelled()
-    steps:
       - name: ServiceNow DevOps Get Change
         uses: ServiceNow/servicenow-devops-get-change@v3.1.0
         id: get
@@ -220,17 +212,8 @@ jobs:
               "attempt_number":"${{ github.run_attempt }}"
             }
 
-      - name: Cancel Change Request
-        uses: ServiceNow/servicenow-devops-update-change@v5.1.0
-        with:
-          devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
-          instance-url: ${{ secrets.SN_INSTANCE_URL }}
-          tool-id: ${{ secrets.SN_ORCHESTRATION_TOOL_ID }}
-          context-github: ${{ toJSON(github) }}
-          change-request-number: '${{ steps.get.outputs.change-request-number }}'
-          change-request-details: |
-            {
-              "close_code": "successful",
-              "close_notes": "Cancelled by GitHub Actions",
-              "state": "4"
-            }
+      - name: ServiceNow DevOps Change Request Info
+        run: |
+          echo "::notice::Change Request Number: ${{ steps.get.outputs.change-request-number }}"
+          echo "::notice::Change Request Status: ${{ steps.get.outputs.change-request-status }}"
+

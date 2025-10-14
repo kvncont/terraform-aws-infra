@@ -196,6 +196,12 @@ jobs:
       #   working-directory: ${{ env.WORKING_DIR }}
       #   run: terraform apply -auto-approve tfplan
 
+  change-request-info:
+    name: Change Request Info
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+    if: always()
+    steps:
       - name: ServiceNow DevOps Get Change
         uses: ServiceNow/servicenow-devops-get-change@v3.1.0
         id: get

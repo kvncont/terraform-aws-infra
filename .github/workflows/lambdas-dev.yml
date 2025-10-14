@@ -204,6 +204,16 @@ jobs:
       - terraform-apply
     if: cancelled()
     steps:
+      - name: ServiceNow DevOps Get Change
+        uses: ServiceNow/servicenow-devops-get-change@v3.1.0
+        id: get
+        with:
+          devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
+          instance-url: ${{ secrets.SN_INSTANCE_URL }}
+          tool-id: ${{ secrets.SN_ORCHESTRATION_TOOL_ID }}
+          context-github: ${{ toJSON(github) }}
+          change-details: '{"build_number":"${{ github.run_number }}","pipeline_name":"Lambdas Dev","stage_name":"Terraform Plan","attempt_number":"${{ github.run_attempt }}"}'
+
       - name: Cancel Change Request
         uses: ServiceNow/servicenow-devops-update-change@v5.1.0
         with:
@@ -211,7 +221,7 @@ jobs:
           instance-url: ${{ secrets.SN_INSTANCE_URL }}
           tool-id: ${{ secrets.SN_ORCHESTRATION_TOOL_ID }}
           context-github: ${{ toJSON(github) }}
-          change-request-number: '${{ needs.terraform-plan.outputs.change_request_number }}'
+          change-request-number: '${{ steps.get.outputs.change-request-number }}'
           change-request-details: |
             {
               "close_code": "unsuccessful",

@@ -17,208 +17,24 @@ on:
       - 'lambdas/env/dev/**'
       - '.github/workflows/lambdas-dev.yml'
 
-permissions:
-  contents: read
-  pull-requests: write
-  id-token: write
-
-env:
-  TF_VERSION: '1.5.0'
-  AWS_REGION: 'us-east-1'
-  WORKING_DIR: 'lambdas'
-  TF_VAR_FILE: 'env/dev/dev.tfvars'
-
 jobs:
-  terraform-plan:
-    name: Terraform Plan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: GitHubActions-Terraform-Plan
-
-      - name: Terraform Init
-        working-directory: ${{ env.WORKING_DIR }}
-        run: terraform init
-
-      - name: Terraform Format Check
-        working-directory: ${{ env.WORKING_DIR }}
-        run: terraform fmt -check -recursive
-
-      - name: Terraform Validate
-        working-directory: ${{ env.WORKING_DIR }}
-        run: terraform validate
-
-      - name: Terraform Plan
-        id: plan
-        working-directory: ${{ env.WORKING_DIR }}
-        run: |
-          terraform plan -var-file="${{ env.TF_VAR_FILE }}" -out=tfplan
-          {
-            echo 'plan<<EOF'
-            terraform show -no-color tfplan
-            echo 'EOF'
-          } >> $GITHUB_OUTPUT
-
-      - name: Upload Terraform Plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan
-          path: ${{ env.WORKING_DIR }}/tfplan
-          retention-days: 7
-
-      - name: Comment PR with Plan
-        uses: actions/github-script@v7
-        if: github.event_name == 'pull_request'
-        with:
-          script: |
-            const plan = `${{ steps.plan.outputs.plan }}`;
-
-            const output = `#### Terraform Plan
-
-            <details><summary>Show Plan</summary>
-      
-            \`\`\`terraform
-            ${plan}
-            \`\`\`
-      
-            </details>
-      
-            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Working Directory: \`${{ env.WORKING_DIR }}\`*`;
-      
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: output
-            });
-
-      - name: ServiceNow DevOps Change Automation
-        uses: ServiceNow/servicenow-devops-change@v6.1.0
-        if: github.ref == 'refs/heads/main'
-        id: create
-        with:
-          devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
-          instance-url: ${{ secrets.SN_INSTANCE_URL }}
-          tool-id: ${{ secrets.SN_ORCHESTRATION_TOOL_ID }}
-          context-github: ${{ toJSON(github) }}
-          job-name: 'Terraform Plan'
-          change-request: |
-            {
-              "setCloseCode": true,
-              "autoCloseChange": true,
-              "attributes": {
-                "chg_model": {"name": "DevOps"},
-                "short_description": "Automated Software Deployment",
-                "description": "Automated Software Deployment.",
-                "implementation_plan": "Software update is tested and results can be found in Test Summaries Tab; When the change is approved the implementation happens automated by the CICD pipeline within the change planned start and end time window.",
-                "backout_plan": "When software fails in production, the previous software release will be re-deployed.",
-                "test_plan": "Testing if the software was successfully deployed"
-              }
-            }
-          interval: '60'
-          timeout: '180'
-          changeCreationTimeOut: '180'
-          abortOnChangeCreationFailure: true
-          abortOnChangeStepTimeout: false
-          deployment-gate: '{"environment":"dev","jobName":"Terraform Apply"}'
-
-      - name: ServiceNow DevOps Register Package
-        uses: ServiceNow/servicenow-devops-register-package@v3.1.0
-        if: github.ref == 'refs/heads/main'
-        with:
-          devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
-          instance-url: ${{ secrets.SN_INSTANCE_URL }}
-          tool-id: ${{ secrets.SN_ORCHESTRATION_TOOL_ID }}
-          context-github: ${{ toJSON(github) }}
-          job-name: 'Terraform Plan'
-          artifacts: |
-            [
-              {
-                "name": "tfplan",
-                "version": "1.${{ github.run_number }}",
-                "semanticVersion": "1.${{ github.run_number }}.0",
-                "repositoryName": "${{ github.repository }}"
-              }
-            ]
-          package-name: 'tfplan'
-
-  terraform-apply:
-    name: Terraform Apply
-    runs-on: ubuntu-latest
-    needs: terraform-plan
-    if: github.ref == 'refs/heads/main'
-    environment:
-      name: dev
-      url: https://console.aws.amazon.com/lambda
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: GitHubActions-Terraform-Apply
-
-      - name: Terraform Init
-        working-directory: ${{ env.WORKING_DIR }}
-        run: terraform init
-
-      - name: Download Terraform Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan
-          path: ${{ env.WORKING_DIR }}
-
-      - name: Terraform Apply
-        id: apply
-        working-directory: ${{ env.WORKING_DIR }}
-        run: terraform apply -auto-approve tfplan
-
-  change-request-info:
-    name: Change Request Info
-    runs-on: ubuntu-latest
-    needs: terraform-apply
-    if: always() && github.ref == 'refs/heads/main'
-    steps:
-      - name: ServiceNow DevOps Get Change
-        uses: ServiceNow/servicenow-devops-get-change@v3.1.0
-        id: get
-        with:
-          devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
-          instance-url: ${{ secrets.SN_INSTANCE_URL }}
-          tool-id: ${{ secrets.SN_ORCHESTRATION_TOOL_ID }}
-          context-github: ${{ toJSON(github) }}
-          change-details: |
-            {
-              "build_number":"${{ github.run_id }}",
-              "pipeline_name":"${{ github.repository }}/${{ github.workflow }}",
-              "stage_name":"Terraform Apply",
-              "attempt_number":"${{ github.run_attempt }}"
-            }
-
-      - name: ServiceNow DevOps Change Request Info
-        run: |
-          echo "::notice::Change Request Number: ${{ steps.get.outputs.change-request-number }}"
+  deploy:
+    name: Deploy Lambdas to Dev
+    uses: ./.github/workflows/terraform-deploy-reusable.yml
+    with:
+      terraform-version: '1.5.0'
+      aws-region: 'us-east-1'
+      working-directory: 'lambdas'
+      tfvars-file: 'env/dev/dev.tfvars'
+      environment: 'dev'
+      enable-servicenow: true
+      servicenow-deployment-gate: '{"environment":"dev","jobName":"Terraform Apply"}'
+      artifact-retention-days: 7
+      run-apply: true
+    secrets:
+      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      aws-role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+      sn-devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
+      sn-instance-url: ${{ secrets.SN_INSTANCE_URL }}
+      sn-orchestration-tool-id: ${{ secrets.SN_ORCHESTRATION_TOOL_ID }}

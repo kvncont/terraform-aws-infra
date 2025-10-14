@@ -230,7 +230,7 @@ jobs:
           change-request-number: '${{ steps.get.outputs.change-request-number }}'
           change-request-details: |
             {
-              "close_code": "unsuccessful",
+              "close_code": "successful",
               "close_notes": "Cancelled by GitHub Actions",
               "state": "4"
             }

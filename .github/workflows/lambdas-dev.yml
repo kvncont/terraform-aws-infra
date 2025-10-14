@@ -232,5 +232,6 @@ jobs:
             {
               "close_code": "unsuccessful",
               "close_notes": "Cancelled by GitHub Actions",
+              "reason": "Cancelled by GitHub Actions",
               "state": "4"
             }

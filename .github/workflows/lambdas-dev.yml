@@ -32,9 +32,6 @@ jobs:
   terraform-plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
-    outputs:
-      plan-exitcode: ${{ steps.plan.outputs.exitcode }}
-      change-request-number: ${{ steps.create.outputs.change-request-number }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -69,35 +66,36 @@ jobs:
         id: plan
         working-directory: ${{ env.WORKING_DIR }}
         run: |
-          terraform plan -var-file="${{ env.TF_VAR_FILE }}" -out=tfplan -detailed-exitcode || echo "exitcode=$?" >> $GITHUB_OUTPUT
-        continue-on-error: true
+          terraform plan -var-file="${{ env.TF_VAR_FILE }}" -out=tfplan
+          PLAN=$(terraform show tfplan)
+          echo "plan=$PLAN" >> $GITHUB_OUTPUT
 
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4
-        if: steps.plan.outputs.exitcode != '1'
         with:
           name: tfplan
           path: ${{ env.WORKING_DIR }}/tfplan
           retention-days: 7
 
       - name: Comment PR with Plan
-        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
         with:
           script: |
-            const fs = require('fs');
-            const output = `#### Terraform Plan 📝
+            const plan = `${{ steps.plan.outputs.plan }}`;
+
+            const output = `#### Terraform Plan
 
             <details><summary>Show Plan</summary>
-
+      
+            \`\`\`terraform
+            ${plan}
             \`\`\`
-            Plan completed successfully. Check the workflow logs for details.
-            \`\`\`
-
+      
             </details>
-
-            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
-
+      
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Working Directory: \`${{ env.WORKING_DIR }}\`*`;
+      
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -107,8 +105,8 @@ jobs:
 
       - name: ServiceNow DevOps Change Automation
         uses: ServiceNow/servicenow-devops-change@v6.1.0
+        if: github.ref == 'refs/heads/main'
         id: create
-        if: github.ref == 'refs/heads/main' && steps.plan.outputs.exitcode != '1'
         with:
           devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
           instance-url: ${{ secrets.SN_INSTANCE_URL }}
@@ -137,7 +135,7 @@ jobs:
 
       - name: ServiceNow DevOps Register Package
         uses: ServiceNow/servicenow-devops-register-package@v3.1.0
-        if: github.ref == 'refs/heads/main' && steps.plan.outputs.exitcode != '1'
+        if: github.ref == 'refs/heads/main'
         with:
           devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
           instance-url: ${{ secrets.SN_INSTANCE_URL }}
@@ -159,7 +157,7 @@ jobs:
     name: Terraform Apply
     runs-on: ubuntu-latest
     needs: terraform-plan
-    if: github.ref == 'refs/heads/main' && needs.terraform-plan.outputs.plan-exitcode != '1'
+    if: github.ref == 'refs/heads/main'
     environment:
       name: dev
       url: https://console.aws.amazon.com/lambda

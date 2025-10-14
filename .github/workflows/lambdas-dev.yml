@@ -212,7 +212,13 @@ jobs:
           instance-url: ${{ secrets.SN_INSTANCE_URL }}
           tool-id: ${{ secrets.SN_ORCHESTRATION_TOOL_ID }}
           context-github: ${{ toJSON(github) }}
-          change-details: '{"build_number":"${{ github.run_number }}","pipeline_name":"Lambdas Dev","stage_name":"Terraform Plan","attempt_number":"${{ github.run_attempt }}"}'
+          change-details: |
+            {
+              "build_number":"${{ github.run_id }}",
+              "pipeline_name":"${{ github.repository }}/${{ github.workflow }}",
+              "stage_name":"Terraform Plan",
+              "attempt_number":"${{ github.run_attempt }}"
+            }
 
       - name: Cancel Change Request
         uses: ServiceNow/servicenow-devops-update-change@v5.1.0

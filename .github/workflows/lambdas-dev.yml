@@ -108,6 +108,7 @@ jobs:
       - name: ServiceNow DevOps Change Automation
         uses: ServiceNow/servicenow-devops-change@v6.1.0
         id: create
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.plan.outputs.exitcode != '1'
         with:
           devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
           instance-url: ${{ secrets.SN_INSTANCE_URL }}
@@ -134,6 +135,25 @@ jobs:
           abortOnChangeStepTimeout: false
           deployment-gate: '{"environment":"dev","jobName":"Terraform Apply"}'
 
+      - name: ServiceNow DevOps Register Package
+        uses: ServiceNow/servicenow-devops-register-package@v3.1.0
+        with:
+          devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
+          instance-url: ${{ secrets.SN_INSTANCE_URL }}
+          tool-id: ${{ secrets.SN_ORCHESTRATION_TOOL_ID }}
+          context-github: ${{ toJSON(github) }}
+          job-name: 'Terraform Plan'
+          artifacts: |
+            [
+              {
+                "name": "tfplan",
+                "version": "1.${{ github.run_number }}",
+                "semanticVersion": "1.${{ github.run_number }}.0",
+                "repositoryName": "${{ github.repository }}"
+              }
+            ]
+          package-name: 'tfplan'
+
   terraform-apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
@@ -154,6 +174,8 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: GitHubActions-Terraform-Apply

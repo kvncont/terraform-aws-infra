@@ -220,20 +220,17 @@ jobs:
               "attempt_number":"${{ github.run_attempt }}"
             }
 
-      - name: Output of GetChangeDetails
-        run: echo "The Status of Update Change Request Details => ${{ steps.get.outputs.change-request-number }}"
-
-      # - name: Cancel Change Request
-      #   uses: ServiceNow/servicenow-devops-update-change@v5.1.0
-      #   with:
-      #     devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
-      #     instance-url: ${{ secrets.SN_INSTANCE_URL }}
-      #     tool-id: ${{ secrets.SN_ORCHESTRATION_TOOL_ID }}
-      #     context-github: ${{ toJSON(github) }}
-      #     change-request-number: '${{ steps.get.outputs.change-request-number }}'
-      #     change-request-details: |
-      #       {
-      #         "close_code": "unsuccessful",
-      #         "close_notes": "Cancelled by GitHub Actions",
-      #         "state": "4"
-      #       }
+      - name: Cancel Change Request
+        uses: ServiceNow/servicenow-devops-update-change@v5.1.0
+        with:
+          devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
+          instance-url: ${{ secrets.SN_INSTANCE_URL }}
+          tool-id: ${{ secrets.SN_ORCHESTRATION_TOOL_ID }}
+          context-github: ${{ toJSON(github) }}
+          change-request-number: '${{ steps.get.outputs.change-request-number }}'
+          change-request-details: |
+            {
+              "close_code": "unsuccessful",
+              "close_notes": "Cancelled by GitHub Actions",
+              "state": "4"
+            }

@@ -1,0 +1,56 @@
+# This is an example of how to use the reusable workflow in another repository
+# Copy this file to your repository and customize it for your needs
+
+name: Example - Deploy Infrastructure
+
+on:
+  workflow_dispatch:  # Manual trigger
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to Environment
+    # Reference the reusable workflow from this repository
+    uses: kvncont/terraform-aws-infra/.github/workflows/terraform-deploy-reusable.yml@main
+    with:
+      # Terraform configuration
+      terraform-version: '1.5.0'
+      
+      # AWS configuration
+      aws-region: 'us-east-1'
+      
+      # Terraform paths
+      working-directory: 'terraform'  # Change to your Terraform directory
+      tfvars-file: 'env/dev/dev.tfvars'  # Change to your tfvars file
+      
+      # Environment configuration
+      environment: 'dev'  # Options: dev, staging, prod
+      
+      # Optional: ServiceNow integration
+      enable-servicenow: false  # Set to true if you use ServiceNow
+      servicenow-change-model: 'DevOps'
+      servicenow-deployment-gate: '{"environment":"dev","jobName":"Terraform Apply"}'
+      
+      # Optional: Artifact management
+      artifact-retention-days: 7
+      
+      # Optional: Control apply behavior
+      run-apply: true  # Set to false for plan-only
+    
+    secrets:
+      # Required AWS secrets
+      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      
+      # Optional: AWS role to assume (recommended)
+      aws-role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+      
+      # Optional: ServiceNow secrets (required if enable-servicenow is true)
+      sn-devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
+      sn-instance-url: ${{ secrets.SN_INSTANCE_URL }}
+      sn-orchestration-tool-id: ${{ secrets.SN_ORCHESTRATION_TOOL_ID }}

@@ -67,8 +67,11 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }}
         run: |
           terraform plan -var-file="${{ env.TF_VAR_FILE }}" -out=tfplan
-          PLAN=$(terraform show tfplan)
-          echo "plan=$PLAN" >> $GITHUB_OUTPUT
+          {
+            echo 'plan<<EOF'
+            terraform show tfplan
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
 
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4

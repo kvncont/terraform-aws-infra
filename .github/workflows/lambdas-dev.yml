@@ -132,7 +132,7 @@ jobs:
           changeCreationTimeOut: '180'
           abortOnChangeCreationFailure: true
           abortOnChangeStepTimeout: false
-          deployment-gate: '{"environment":"production","jobName":"Terraform Apply"}'
+          deployment-gate: '{"environment":"dev","jobName":"Terraform Apply"}'
 
   terraform-apply:
     name: Terraform Apply

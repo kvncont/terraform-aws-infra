@@ -199,8 +199,10 @@ jobs:
   cancel-change-request:
     name: Cancel Change Request
     runs-on: ubuntu-latest
-    needs: terraform-plan
-    if: needs.terraform-plan.outcomes == 'success' && cancelled()
+    needs:
+      - terraform-plan
+      - terraform-apply
+    if: needs.terraform-apply.outcomes == 'cancelled'
     steps:
       - name: Cancel Change Request
         uses: ServiceNow/servicenow-devops-update-change@v5.1.0

@@ -190,10 +190,10 @@ jobs:
           name: tfplan
           path: ${{ env.WORKING_DIR }}
 
-      - name: Terraform Apply
-        id: apply
-        working-directory: ${{ env.WORKING_DIR }}
-        run: terraform apply -auto-approve tfplan
+      # - name: Terraform Apply
+      #   id: apply
+      #   working-directory: ${{ env.WORKING_DIR }}
+      #   run: terraform apply -auto-approve tfplan
 
       - name: Cancel Change Request
         uses: ServiceNow/servicenow-devops-update-change@v5.1.0

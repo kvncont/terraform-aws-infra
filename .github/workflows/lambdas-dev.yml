@@ -192,10 +192,10 @@ jobs:
           name: tfplan
           path: ${{ env.WORKING_DIR }}
 
-      # - name: Terraform Apply
-      #   id: apply
-      #   working-directory: ${{ env.WORKING_DIR }}
-      #   run: terraform apply -auto-approve tfplan
+      - name: Terraform Apply
+        id: apply
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terraform apply -auto-approve tfplan
 
   change-request-info:
     name: Change Request Info

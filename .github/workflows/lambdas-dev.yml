@@ -221,5 +221,5 @@ jobs:
       - name: ServiceNow DevOps Change Request Info
         run: |
           echo "::notice::Change Request Number: ${{ steps.get.outputs.change-request-number }}"
-          echo "::notice::Change Request Status: ${{ steps.get.outputs.change-request-status }}"
+          echo "::notice::Change Request Status: ${{ steps.get.outputs.status }}"
 

@@ -108,7 +108,7 @@ jobs:
       - name: ServiceNow DevOps Change Automation
         uses: ServiceNow/servicenow-devops-change@v6.1.0
         id: create
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.plan.outputs.exitcode != '1'
+        if: github.ref == 'refs/heads/main' && steps.plan.outputs.exitcode != '1'
         with:
           devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
           instance-url: ${{ secrets.SN_INSTANCE_URL }}
@@ -137,6 +137,7 @@ jobs:
 
       - name: ServiceNow DevOps Register Package
         uses: ServiceNow/servicenow-devops-register-package@v3.1.0
+        if: github.ref == 'refs/heads/main' && steps.plan.outputs.exitcode != '1'
         with:
           devops-integration-token: ${{ secrets.SN_DEVOPS_INTEGRATION_TOKEN }}
           instance-url: ${{ secrets.SN_INSTANCE_URL }}

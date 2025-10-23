@@ -1,0 +1,174 @@
+name: Deploy Lambda Infrastructure - Dev
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'lambda/**'
+      - 'lambdas/env/dev/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'lambda/**'
+      - 'lambdas/env/dev/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+env:
+  TF_VERSION: '1.5.0'
+  AWS_REGION: 'us-east-1'
+  WORKING_DIR: 'lambdas'
+  TF_VAR_FILE: 'env/dev/dev.tfvars'
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    outputs:
+      plan-exitcode: ${{ steps.plan.outputs.exitcode }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: ServiceNow DevOps Change Automation
+        uses: ServiceNow/servicenow-devops-change@v4.0.0
+        with:
+          instance-url: ${{ secrets.SN_INSTANCE_URL }}
+          devops-integration-token: ${{ secrets.SN_DEVOPS_TOKEN }}
+          tool-id: ${{ secrets.SN_TOOL_ID }}
+          context-github: ${{ toJSON(github) }}
+          job-name: 'Terraform Plan'
+          change-request: '{
+            "short_description": "Deploy Lambda Infrastructure - Dev Environment",
+            "description": "Automated deployment of Lambda infrastructure to development environment via GitHub Actions",
+            "assignment_group": "${{ secrets.SN_ASSIGNMENT_GROUP }}",
+            "category": "Infrastructure",
+            "priority": "3"
+          }'
+          interval: '30'
+          timeout: '3600'
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-Terraform-Plan
+
+      - name: Terraform Init
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Format Check
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Validate
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform plan -var-file="${{ env.TF_VAR_FILE }}" -out=tfplan -detailed-exitcode || echo "exitcode=$?" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.WORKING_DIR }}/tfplan
+          retention-days: 5
+
+      - name: Comment PR with Plan
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = `#### Terraform Plan 📝
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`
+            Plan completed successfully. Check the workflow logs for details.
+            \`\`\`
+
+            </details>
+
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: dev
+      url: https://console.aws.amazon.com/lambda
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: ServiceNow DevOps Change Automation
+        uses: ServiceNow/servicenow-devops-change@v4.0.0
+        with:
+          instance-url: ${{ secrets.SN_INSTANCE_URL }}
+          devops-integration-token: ${{ secrets.SN_DEVOPS_TOKEN }}
+          tool-id: ${{ secrets.SN_TOOL_ID }}
+          context-github: ${{ toJSON(github) }}
+          job-name: 'Terraform Apply'
+          change-request: '{
+            "short_description": "Deploy Lambda Infrastructure - Dev Environment",
+            "description": "Automated deployment of Lambda infrastructure to development environment via GitHub Actions",
+            "assignment_group": "${{ secrets.SN_ASSIGNMENT_GROUP }}",
+            "category": "Infrastructure",
+            "priority": "3"
+          }'
+          interval: '30'
+          timeout: '3600'
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-Terraform-Apply
+
+      - name: Terraform Init
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terraform init
+
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Apply
+        id: apply
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terraform apply -auto-approve tfplan

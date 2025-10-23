@@ -2,7 +2,7 @@
 
 # Variables generales
 aws_region   = "us-east-1"
-environment  = "dev"
+environment  = "stg"
 project_name = "terraform-aws-infra"
 
 # Variables de la Lambda
